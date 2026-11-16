@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  laravel:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: pulsesync_test
+          POSTGRES_USER: pulsesync
+          POSTGRES_PASSWORD: pulsesync
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pulsesync -d pulsesync_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: laravel-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: pgsql, pdo_pgsql
+          tools: composer:v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: laravel-app/package-lock.json
+      - run: composer install --no-interaction --prefer-dist
+      - run: cp .env.example .env
+      - run: php artisan key:generate
+
+      - run: php artisan test
+        env:
+          DB_HOST: 127.0.0.1
+          DB_USERNAME: pulsesync
+          DB_PASSWORD: pulsesync
+      - run: vendor/bin/pint --test
+      - run: npm ci
+      - run: npm run build
+
+  wordpress:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: wordpress-plugin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          tools: composer:v2
+      - run: composer install --no-interaction --prefer-dist
+      - run: vendor/bin/phpunit
+      - run: vendor/bin/phpcs
