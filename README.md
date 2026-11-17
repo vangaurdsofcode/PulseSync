@@ -12,19 +12,53 @@ flowchart LR
   PG --> Dashboard[Vue analytics dashboard]
 ```
 
-## Run locally
+## Run locally without Docker
 
-Requires Docker Compose.
+Install PHP 8.2+ with `pdo_pgsql`, Composer, Node.js, and PostgreSQL 16+. Create a
+PostgreSQL role and database using pgAdmin or `psql`:
 
-```sh
-docker compose up --build
+```sql
+CREATE ROLE pulsesync LOGIN PASSWORD 'pulsesync';
+CREATE DATABASE pulsesync OWNER pulsesync;
 ```
 
-Open the dashboard at <http://localhost:8000>. Demo login: `demo@pulsesync.test` /
-`password`. WordPress runs at <http://localhost:8080>; finish its setup, activate
-**PulseSync Connector**, then set its endpoint to
-`http://app:8000/api/v1/events` and paste the site's dashboard token into
+Then open PowerShell from the project folder:
+
+```powershell
+cd laravel-app
+Copy-Item .env.example .env
+composer install
+npm ci
+php artisan key:generate
+php artisan migrate --seed
+npm run build
+```
+
+Set `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD` in `laravel-app/.env` to match
+your PostgreSQL setup. In separate PowerShell windows, run:
+
+```powershell
+cd laravel-app
+php artisan serve
+```
+
+```powershell
+cd laravel-app
+php artisan queue:work --tries=5
+```
+
+Open <http://localhost:8000>. Demo login: `demo@pulsesync.test` / `password`.
+To connect WordPress, install it separately (for example with XAMPP or Local),
+copy `wordpress-plugin` into its `wp-content/plugins/pulsesync-connector` folder,
+activate **PulseSync Connector**, and set its API endpoint to
+`http://localhost:8000/api/v1/events`. Paste the site's dashboard token into
 **Settings → PulseSync**.
+
+## Run with Docker
+
+Alternatively, install Docker Compose and run `docker compose up --build`. The
+dashboard is at <http://localhost:8000> and WordPress at <http://localhost:8080>.
+In that setup, set the plugin endpoint to `http://app:8000/api/v1/events`.
 
 ## Data
 
